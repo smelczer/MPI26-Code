@@ -4,7 +4,11 @@ ARG NB_UID=1000
 ARG NB_USER=sage
 
 USER root
-RUN apt update && apt install -y python3 python3-pip git
+# Macaulay2 and msolve (from the M2 PPA) are used by sage_acsv as optional backends
+RUN apt update && apt install -y python3 python3-pip git software-properties-common \
+ && add-apt-repository -y ppa:macaulay2/macaulay2 \
+ && apt install -y macaulay2 msolve \
+ && rm -rf /var/lib/apt/lists/*
 USER ${NB_UID}
 ENV PATH="${PATH}:${HOME}/.local/bin"
 RUN pip3 install notebook
@@ -13,6 +17,9 @@ RUN pip3 install notebook
 RUN mkdir -p $HOME/.local/share/jupyter/kernels && \
     ln -s $(sage -sh -c 'ls -d $SAGE_VENV/share/jupyter/kernels/sagemath') \
           $HOME/.local/share/jupyter/kernels/sagemath-10.7
+
+# Verify Sage can drive the Macaulay2 and msolve backends
+RUN sage -c "print('M2 via Sage:', macaulay2('2+2')); from sage.features.msolve import msolve; assert msolve().is_present(); print('msolve visible to Sage')"
 
 # install the packages used by the lecture notebooks
 RUN sage -pip install git+https://github.com/ACSVMath/sage_acsv.git
@@ -27,6 +34,8 @@ RUN sage -c "import ore_algebra.analytic.dac_sum_c, ore_algebra.analytic.naive_s
  || sage -c "import glob, os, ore_algebra; d = os.path.dirname(ore_algebra.__file__); [os.remove(f) for f in glob.glob(d + '/**/*.so', recursive=True)]; print('removed mismatched ore_algebra accelerators')"
 
 # Fail the image build if numeric analytic continuation does not work
+# (NOTE: on Apple-silicon hosts this step dies under Rosetta emulation because the
+# base image's FLINT uses ADX instructions; it passes on real amd64 hosts like Binder)
 RUN sage -c "from ore_algebra import OreAlgebra; Pols = QQ['z']; z = Pols.gen(); Dz = OreAlgebra(Pols, 'Dz').gen(); print((2*z*Dz - 1).numerical_solution(ini=[1], path=[1, I, -1]))"
 
 RUN sage -pip install git+https://github.com/ACSVMath/sage_periods.git
