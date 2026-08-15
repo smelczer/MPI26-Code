@@ -15,7 +15,7 @@ RUN mkdir -p $HOME/.local/share/jupyter/kernels && \
           $HOME/.local/share/jupyter/kernels/sagemath-10.7
 
 # install the packages used by the lecture notebooks
-RUN sage -pip install sage_acsv
+RUN sage -pip install git+https://github.com/ACSVMath/sage_acsv.git
 
 # Build ore_algebra's compiled helpers against this image's own Sage and Cython.
 RUN sage -pip install --no-build-isolation git+https://github.com/mkauers/ore_algebra.git \
